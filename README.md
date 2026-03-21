@@ -35,7 +35,8 @@ Add the platform to your Homebridge `config.json`:
       "temperature_offset": 2,
       "i2c_bus": 1,
       "poll_interval": 10,
-      "co2_threshold": 1000
+      "co2_threshold": 1000,
+      "auto_calibration": true
     }
   ]
 }
@@ -51,6 +52,7 @@ Add the platform to your Homebridge `config.json`:
 | `i2c_bus` | integer | `1` | I²C bus number the sensor is connected to. On Raspberry Pi this is usually `1`. |
 | `poll_interval` | integer | `10` | How often the sensor measures and is polled, in seconds. Valid range: 2–1800. |
 | `co2_threshold` | integer | `1000` | CO₂ level in ppm at which the CO₂ Detected characteristic switches to abnormal. |
+| `auto_calibration` | boolean | `true` | Enable the SCD30 automatic self-calibration (ASC). Disable if the sensor is not regularly exposed to fresh outdoor air (~400 ppm). |
 
 ### Temperature offset
 
