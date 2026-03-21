@@ -2,7 +2,7 @@
   "pluginAlias": "SCD30",
   "pluginType": "platform",
   "singular": true,
-  "strictValidation": false,
+  "strictValidation": true,
   "schema": {
     "type": "object",
     "required": ["name"],
@@ -17,25 +17,31 @@
         "title": "Temperature Offset (°C)",
         "description": "Compensates for sensor self-heating. Written to the SCD30 hardware register. Typical values: 0–5°C.",
         "type": "number",
-        "default": 0
+        "default": 0,
+        "minimum": 0
       },
       "i2c_bus": {
         "title": "I2C Bus Number",
         "description": "The I2C bus the SCD30 is connected to. Usually 1 on Raspberry Pi.",
         "type": "integer",
-        "default": 1
+        "default": 1,
+        "minimum": 0
       },
       "poll_interval": {
         "title": "Poll Interval (seconds)",
         "description": "How often to read a measurement from the sensor.",
         "type": "integer",
-        "default": 10
+        "default": 10,
+        "minimum": 2,
+        "maximum": 1800
       },
       "co2_threshold": {
         "title": "CO₂ Threshold (ppm)",
         "description": "CO₂ level in ppm at which the CO₂ Detected characteristic switches to abnormal.",
         "type": "integer",
-        "default": 1000
+        "default": 1000,
+        "minimum": 1,
+        "maximum": 5000
       },
       "auto_calibration": {
         "title": "Automatic Self-Calibration",

@@ -3,6 +3,7 @@ import type { SCD30Platform } from './platform.js';
 import { SCD30 } from 'scd30-node';
 
 const MAX_CONSECUTIVE_ERRORS = 3;
+const RECONNECT_DELAY_MS = 60000;
 
 export class SCD30Accessory {
   private readonly co2Service: Service;
@@ -11,6 +12,7 @@ export class SCD30Accessory {
   private sensor: SCD30 | null = null;
   private pollTimer: NodeJS.Timeout | null = null;
   private consecutiveErrors = 0;
+  private isShuttingDown = false;
 
   constructor(
     private readonly platform: SCD30Platform,
@@ -30,7 +32,12 @@ export class SCD30Accessory {
     this.humidityService = this.accessory.getService(this.platform.Service.HumiditySensor)
       || this.accessory.addService(this.platform.Service.HumiditySensor);
 
-    this.initialize().catch(err => this.platform.log.error('Failed to initialize SCD30:', err));
+    this.platform.api.on('shutdown', () => this.shutdown());
+
+    this.initialize().catch(err => {
+      this.platform.log.error('Failed to initialize SCD30:', err);
+      this.scheduleReconnect();
+    });
   }
 
   private async initialize() {
@@ -64,12 +71,28 @@ export class SCD30Accessory {
     await this.sensor.startContinuousMeasurement();
     this.platform.log.info('SCD30 continuous measurement started');
 
-    this.platform.api.on('shutdown', () => this.shutdown());
-
+    this.consecutiveErrors = 0;
     this.startPolling(pollInterval * 1000, co2Threshold);
   }
 
+  private scheduleReconnect() {
+    if (this.isShuttingDown) {
+      return;
+    }
+    this.platform.log.info(`Reconnecting to SCD30 in ${RECONNECT_DELAY_MS / 1000}s...`);
+    setTimeout(() => {
+      if (this.isShuttingDown) {
+        return;
+      }
+      this.initialize().catch(err => {
+        this.platform.log.error('Reconnection failed:', err);
+        this.scheduleReconnect();
+      });
+    }, RECONNECT_DELAY_MS);
+  }
+
   private async shutdown() {
+    this.isShuttingDown = true;
     this.platform.log.info('Shutting down SCD30');
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
@@ -124,6 +147,16 @@ export class SCD30Accessory {
         this.platform.log.error(`Error reading from SCD30 (${this.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, err);
         if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           this.setNotResponding();
+          clearInterval(this.pollTimer!);
+          this.pollTimer = null;
+          if (this.sensor) {
+            try {
+              await this.sensor.stopContinuousMeasurement();
+              await this.sensor.disconnect();
+            } catch { /* sensor may already be unreachable */ }
+            this.sensor = null;
+          }
+          this.scheduleReconnect();
         }
       }
     }, intervalMs);

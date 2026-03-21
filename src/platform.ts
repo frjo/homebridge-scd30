@@ -35,7 +35,7 @@ export class SCD30Platform implements DynamicPlatformPlugin {
       new SCD30Accessory(this, existingAccessory);
     } else {
       this.log.info('Adding SCD30 accessory');
-      const accessory = new this.api.platformAccessory('SCD30', uuid);
+      const accessory = new this.api.platformAccessory(this.config.name as string, uuid);
       new SCD30Accessory(this, accessory);
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     }

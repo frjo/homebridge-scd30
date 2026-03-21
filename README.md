@@ -32,7 +32,7 @@ Add the platform to your Homebridge `config.json`:
     {
       "platform": "SCD30",
       "name": "SCD30",
-      "temperature_offset": 2,
+      "temperature_offset": 0,
       "i2c_bus": 1,
       "poll_interval": 10,
       "co2_threshold": 1000,
