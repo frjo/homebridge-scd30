@@ -1,4 +1,6 @@
-import type { PlatformAccessory, Service } from 'homebridge';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 import type { SCD30Platform } from './platform.js';
 import { SCD30 } from 'scd30-node';
 
@@ -9,15 +11,27 @@ export class SCD30Accessory {
   private readonly co2Service: Service;
   private readonly temperatureService: Service;
   private readonly humidityService: Service;
+  private readonly peakStorageFile: string;
   private sensor: SCD30 | null = null;
   private pollTimer: NodeJS.Timeout | null = null;
   private consecutiveErrors = 0;
   private isShuttingDown = false;
+  private peakLoaded = false;
+
+  // Cached values for onGet handlers
+  private co2Threshold = 1000;
+  private lastCO2 = 0;
+  private lastPeakCO2 = 0;
+  private lastTemperature = 0;
+  private lastHumidity = 0;
+  private hasValidReading = false;
 
   constructor(
     private readonly platform: SCD30Platform,
     private readonly accessory: PlatformAccessory,
   ) {
+    this.peakStorageFile = join(this.platform.api.user.storagePath(), 'homebridge-scd30.json');
+
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Sensirion')
       .setCharacteristic(this.platform.Characteristic.Model, 'SCD30')
@@ -25,12 +39,42 @@ export class SCD30Accessory {
 
     this.co2Service = this.accessory.getService(this.platform.Service.CarbonDioxideSensor)
       || this.accessory.addService(this.platform.Service.CarbonDioxideSensor);
+    this.co2Service.setCharacteristic(this.platform.Characteristic.Name, 'CO₂');
 
     this.temperatureService = this.accessory.getService(this.platform.Service.TemperatureSensor)
       || this.accessory.addService(this.platform.Service.TemperatureSensor);
+    this.temperatureService.setCharacteristic(this.platform.Characteristic.Name, 'Temperature');
 
     this.humidityService = this.accessory.getService(this.platform.Service.HumiditySensor)
       || this.accessory.addService(this.platform.Service.HumiditySensor);
+    this.humidityService.setCharacteristic(this.platform.Characteristic.Name, 'Humidity');
+
+    // StatusActive starts false until sensor connects and provides a reading
+    for (const service of [this.co2Service, this.temperatureService, this.humidityService]) {
+      service.setCharacteristic(this.platform.Characteristic.StatusActive, false);
+      service.setCharacteristic(this.platform.Characteristic.StatusFault,
+        this.platform.Characteristic.StatusFault.NO_FAULT);
+    }
+
+    // Register onGet handlers to return last cached values
+    this.co2Service.getCharacteristic(this.platform.Characteristic.CarbonDioxideLevel)
+      .onGet(() => this.getCachedOrError(this.lastCO2));
+
+    this.co2Service.getCharacteristic(this.platform.Characteristic.CarbonDioxideDetected)
+      .onGet(() => this.getCachedOrError(
+        this.lastCO2 >= this.co2Threshold
+          ? this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
+          : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL,
+      ));
+
+    this.co2Service.getCharacteristic(this.platform.Characteristic.CarbonDioxidePeakLevel)
+      .onGet(() => this.getCachedOrError(this.lastPeakCO2));
+
+    this.temperatureService.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+      .onGet(() => this.getCachedOrError(this.lastTemperature));
+
+    this.humidityService.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
+      .onGet(() => this.getCachedOrError(this.lastHumidity));
 
     this.platform.api.on('shutdown', () => this.shutdown());
 
@@ -40,16 +84,48 @@ export class SCD30Accessory {
     });
   }
 
+  private getCachedOrError(value: CharacteristicValue): CharacteristicValue {
+    if (!this.hasValidReading) {
+      throw new this.platform.api.hap.HapStatusError(
+        this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
+      );
+    }
+    return value;
+  }
+
+  private async loadPeakCO2(): Promise<number> {
+    try {
+      const data = JSON.parse(await readFile(this.peakStorageFile, 'utf-8'));
+      return typeof data.peakCO2 === 'number' && isFinite(data.peakCO2) ? data.peakCO2 : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private async savePeakCO2(value: number): Promise<void> {
+    try {
+      await writeFile(this.peakStorageFile, JSON.stringify({ peakCO2: value }));
+    } catch (err) {
+      this.platform.log.warn('Failed to save peak CO2 to storage:', err);
+    }
+  }
+
   private async initialize() {
     const busNumber = (this.platform.config.i2c_bus as number | undefined) ?? 1;
     const temperatureOffset = (this.platform.config.temperature_offset as number | undefined) ?? 0;
     const autoCalibration = (this.platform.config.auto_calibration as boolean | undefined) ?? true;
-    const co2Threshold = (this.platform.config.co2_threshold as number | undefined) ?? 1000;
+    this.co2Threshold = (this.platform.config.co2_threshold as number | undefined) ?? 1000;
 
     const rawPollInterval = (this.platform.config.poll_interval as number | undefined) ?? 10;
     const pollInterval = Math.min(1800, Math.max(2, rawPollInterval));
     if (pollInterval !== rawPollInterval) {
       this.platform.log.warn(`poll_interval ${rawPollInterval}s is out of range (2–1800), clamped to ${pollInterval}s`);
+    }
+
+    if (!this.peakLoaded) {
+      this.lastPeakCO2 = await this.loadPeakCO2();
+      this.peakLoaded = true;
+      this.platform.log.debug(`Loaded peak CO2 from storage: ${this.lastPeakCO2} ppm`);
     }
 
     this.sensor = await SCD30.connect(busNumber);
@@ -72,7 +148,7 @@ export class SCD30Accessory {
     this.platform.log.info('SCD30 continuous measurement started');
 
     this.consecutiveErrors = 0;
-    this.startPolling(pollInterval * 1000, co2Threshold);
+    this.startPolling(pollInterval * 1000);
   }
 
   private scheduleReconnect() {
@@ -109,17 +185,32 @@ export class SCD30Accessory {
     }
   }
 
+  private setActive() {
+    for (const service of [this.co2Service, this.temperatureService, this.humidityService]) {
+      service.updateCharacteristic(this.platform.Characteristic.StatusActive, true);
+      service.updateCharacteristic(this.platform.Characteristic.StatusFault,
+        this.platform.Characteristic.StatusFault.NO_FAULT);
+    }
+  }
+
   private setNotResponding() {
+    this.hasValidReading = false;
     const error = new this.platform.api.hap.HapStatusError(
       this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE,
     );
+    for (const service of [this.co2Service, this.temperatureService, this.humidityService]) {
+      service.updateCharacteristic(this.platform.Characteristic.StatusActive, false);
+      service.updateCharacteristic(this.platform.Characteristic.StatusFault,
+        this.platform.Characteristic.StatusFault.GENERAL_FAULT);
+    }
     this.co2Service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, error);
     this.co2Service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideDetected, error);
+    this.co2Service.updateCharacteristic(this.platform.Characteristic.CarbonDioxidePeakLevel, error);
     this.temperatureService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, error);
     this.humidityService.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, error);
   }
 
-  private startPolling(intervalMs: number, co2Threshold: number) {
+  private startPolling(intervalMs: number) {
     this.pollTimer = setInterval(async () => {
       try {
         if (!this.sensor || !await this.sensor.isDataReady()) {
@@ -135,18 +226,32 @@ export class SCD30Accessory {
         }
 
         this.consecutiveErrors = 0;
+        this.lastCO2 = co2;
+        this.lastTemperature = m.temperature;
+        this.lastHumidity = m.relativeHumidity;
+
+        if (co2 > this.lastPeakCO2) {
+          this.lastPeakCO2 = co2;
+          this.savePeakCO2(co2).catch(err => this.platform.log.warn('Failed to save peak CO2:', err));
+        }
+
+        if (!this.hasValidReading) {
+          this.hasValidReading = true;
+          this.setActive();
+        }
 
         this.co2Service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, co2);
         this.co2Service.updateCharacteristic(
           this.platform.Characteristic.CarbonDioxideDetected,
-          co2 >= co2Threshold
+          co2 >= this.co2Threshold
             ? this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
             : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL,
         );
+        this.co2Service.updateCharacteristic(this.platform.Characteristic.CarbonDioxidePeakLevel, this.lastPeakCO2);
         this.temperatureService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, m.temperature);
         this.humidityService.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, m.relativeHumidity);
 
-        this.platform.log.debug(`CO2: ${co2} ppm, Temp: ${m.temperature.toFixed(1)}°C, Humidity: ${m.relativeHumidity.toFixed(1)}%`);
+        this.platform.log.debug(`CO2: ${co2} ppm (peak: ${this.lastPeakCO2} ppm), Temp: ${m.temperature.toFixed(1)}°C, Humidity: ${m.relativeHumidity.toFixed(1)}%`);
       } catch (err) {
         this.consecutiveErrors++;
         this.platform.log.error(`Error reading from SCD30 (${this.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, err);

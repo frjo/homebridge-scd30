@@ -22,7 +22,10 @@
     "co2",
     "sensor",
     "temperature",
-    "humidity"
+    "humidity",
+    "homekit",
+    "siri",
+    "hoobs-plugin"
   ],
   "main": "dist/index.js",
   "files": [
@@ -37,6 +40,7 @@
   "scripts": {
     "build": "rimraf ./dist && tsc",
     "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
     "prepublishOnly": "npm run lint && npm run build",
     "watch": "npm run build && npm link && nodemon"
   },

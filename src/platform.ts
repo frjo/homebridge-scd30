@@ -17,12 +17,16 @@ export class SCD30Platform implements DynamicPlatformPlugin {
     this.Service = api.hap.Service;
     this.Characteristic = api.hap.Characteristic;
 
+    this.log.debug('Finished initializing platform:', this.config.name);
+
     this.api.on('didFinishLaunching', () => {
+      this.log.debug('Executed didFinishLaunching callback');
       this.discoverDevices();
     });
   }
 
   configureAccessory(accessory: PlatformAccessory) {
+    this.log.info('Loading accessory from cache:', accessory.displayName);
     this.accessories.set(accessory.UUID, accessory);
   }
 
@@ -38,6 +42,14 @@ export class SCD30Platform implements DynamicPlatformPlugin {
       const accessory = new this.api.platformAccessory(this.config.name as string, uuid);
       new SCD30Accessory(this, accessory);
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+    }
+
+    // Unregister any stale accessories in the cache that are no longer present
+    for (const [cachedUuid, accessory] of this.accessories) {
+      if (cachedUuid !== uuid) {
+        this.log.info('Removing stale accessory from cache:', accessory.displayName);
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+      }
     }
   }
 }
