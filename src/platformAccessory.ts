@@ -129,8 +129,8 @@ export class SCD30Accessory {
         const m = await this.sensor.readMeasurement();
         const co2 = Math.round(m.co2Concentration);
 
-        if (!isFinite(co2) || !isFinite(m.temperature) || !isFinite(m.humidity)) {
-          this.platform.log.warn(`Invalid measurement received (CO2: ${m.co2Concentration}, Temp: ${m.temperature}, Humidity: ${m.humidity}), skipping`);
+        if (!isFinite(co2) || !isFinite(m.temperature) || !isFinite(m.relativeHumidity)) {
+          this.platform.log.warn(`Invalid measurement received (CO2: ${m.co2Concentration}, Temp: ${m.temperature}, Humidity: ${m.relativeHumidity}), skipping`);
           return;
         }
 
@@ -144,9 +144,9 @@ export class SCD30Accessory {
             : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL,
         );
         this.temperatureService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, m.temperature);
-        this.humidityService.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, m.humidity);
+        this.humidityService.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, m.relativeHumidity);
 
-        this.platform.log.debug(`CO2: ${co2} ppm, Temp: ${m.temperature.toFixed(1)}°C, Humidity: ${m.humidity.toFixed(1)}%`);
+        this.platform.log.debug(`CO2: ${co2} ppm, Temp: ${m.temperature.toFixed(1)}°C, Humidity: ${m.relativeHumidity.toFixed(1)}%`);
       } catch (err) {
         this.consecutiveErrors++;
         this.platform.log.error(`Error reading from SCD30 (${this.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`, err);

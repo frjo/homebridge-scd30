@@ -2,7 +2,7 @@ declare module 'scd30-node' {
   export interface Measurement {
     co2Concentration: number;
     temperature: number;
-    humidity: number;
+    relativeHumidity: number;
   }
 
   export class SCD30 {
