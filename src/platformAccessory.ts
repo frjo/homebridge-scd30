@@ -129,6 +129,11 @@ export class SCD30Accessory {
         const m = await this.sensor.readMeasurement();
         const co2 = Math.round(m.co2Concentration);
 
+        if (!isFinite(co2) || !isFinite(m.temperature) || !isFinite(m.humidity)) {
+          this.platform.log.warn(`Invalid measurement received (CO2: ${m.co2Concentration}, Temp: ${m.temperature}, Humidity: ${m.humidity}), skipping`);
+          return;
+        }
+
         this.consecutiveErrors = 0;
 
         this.co2Service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, co2);
