@@ -3,7 +3,6 @@
   "displayName": "SCD30 CO2 Sensor",
   "type": "module",
   "version": "1.0.0",
-  "private": true,
   "description": "Homebridge plugin for the Sensirion SCD30 CO2, temperature and humidity sensor",
   "author": "Fredrik Jonsson",
   "license": "Apache-2.0",
@@ -16,7 +15,14 @@
     "url": "https://github.com/frjo/homebridge-scd30/issues"
   },
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "homebridge",
+    "scd30",
+    "sensirion",
+    "co2",
+    "sensor",
+    "temperature",
+    "humidity"
   ],
   "main": "dist/index.js",
   "engines": {
