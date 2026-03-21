@@ -7,7 +7,7 @@
   },
   "description": "HomeBridge HTTP Status Control",
   "plugins": [
-    "homebridge-plugin-name",
+    "homebridge-scd30",
     "homebridge-config-ui-x"
   ],
   "platforms": [
@@ -23,8 +23,10 @@
       "debug": false
     },
     {
-      "name": "homebridge-plugin-name",
-      "platform": "ExampleHomebridgePlugin"
+      "name": "SCD30",
+      "platform": "SCD30",
+      "temperature_offset": 0,
+      "i2c_bus": 1
     }
   ],
   "accessories": []

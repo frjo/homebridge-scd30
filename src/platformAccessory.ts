@@ -1,148 +1,80 @@
-import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
+import type { PlatformAccessory, Service } from 'homebridge';
+import type { SCD30Platform } from './platform.js';
+import { SCD30 } from 'scd30-node';
 
-import type { ExampleHomebridgePlatform } from './platform.js';
 
-/**
- * Platform Accessory
- * An instance of this class is created for each accessory your platform registers
- * Each accessory may expose multiple services of different service types.
- */
-export class ExamplePlatformAccessory {
-  private service: Service;
-
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
-  private exampleStates = {
-    On: false,
-    Brightness: 100,
-  };
+export class SCD30Accessory {
+  private readonly co2Service: Service;
+  private readonly temperatureService: Service;
+  private readonly humidityService: Service;
+  private sensor: SCD30 | null = null;
 
   constructor(
-    private readonly platform: ExampleHomebridgePlatform,
+    private readonly platform: SCD30Platform,
     private readonly accessory: PlatformAccessory,
   ) {
-    // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Sensirion')
+      .setCharacteristic(this.platform.Characteristic.Model, 'SCD30')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'N/A');
 
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
-    // you can create multiple services for each accessory
+    this.co2Service = this.accessory.getService(this.platform.Service.CarbonDioxideSensor)
+      || this.accessory.addService(this.platform.Service.CarbonDioxideSensor);
 
-    if (accessory.context.device.CustomService) {
-      // This is only required when using Custom Services and Characteristics not support by HomeKit
-      this.service = this.accessory.getService(this.platform.CustomServices[accessory.context.device.CustomService]) ||
-        this.accessory.addService(this.platform.CustomServices[accessory.context.device.CustomService]);
-    } else {
-      this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
+    this.temperatureService = this.accessory.getService(this.platform.Service.TemperatureSensor)
+      || this.accessory.addService(this.platform.Service.TemperatureSensor);
+
+    this.humidityService = this.accessory.getService(this.platform.Service.HumiditySensor)
+      || this.accessory.addService(this.platform.Service.HumiditySensor);
+
+    this.initialize().catch(err => this.platform.log.error('Failed to initialize SCD30:', err));
+  }
+
+  private async initialize() {
+    const busNumber = (this.platform.config.i2c_bus as number | undefined) ?? 1;
+    const temperatureOffset = (this.platform.config.temperature_offset as number | undefined) ?? 0;
+    const pollIntervalMs = ((this.platform.config.poll_interval as number | undefined) ?? 10) * 1000;
+    const co2Threshold = (this.platform.config.co2_threshold as number | undefined) ?? 1000;
+
+    this.sensor = await SCD30.connect(busNumber);
+    this.platform.log.info('Connected to SCD30');
+
+    if (temperatureOffset !== 0) {
+      await this.sensor.setTemperatureOffset(temperatureOffset);
+      this.platform.log.info(`Temperature offset set to ${temperatureOffset}°C`);
     }
 
-    // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName);
+    await this.sensor.setMeasurementInterval(pollIntervalMs / 1000);
+    await this.sensor.startContinuousMeasurement();
+    this.platform.log.info('SCD30 continuous measurement started');
 
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Lightbulb
-
-    // register handlers for the On/Off Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
-      .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
-
-    // register handlers for the Brightness Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-      .onSet(this.setBrightness.bind(this)); // SET - bind to the `setBrightness` method below
-
-    /**
-     * Creating multiple services of the same type.
-     *
-     * To avoid "Cannot add a Service with the same UUID another Service without also defining a unique 'subtype' property." error,
-     * when creating multiple services of the same type, you need to use the following syntax to specify a name and subtype id:
-     * this.accessory.getService('NAME') || this.accessory.addService(this.platform.Service.Lightbulb, 'NAME', 'USER_DEFINED_SUBTYPE_ID');
-     *
-     * The USER_DEFINED_SUBTYPE must be unique to the platform accessory (if you platform exposes multiple accessories, each accessory
-     * can use the same subtype id.)
-     */
-
-    // Example: add two "motion sensor" services to the accessory
-    const motionSensorOneService = this.accessory.getService('Motion Sensor One Name')
-      || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
-
-    const motionSensorTwoService = this.accessory.getService('Motion Sensor Two Name')
-      || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');
-
-    /**
-     * Updating characteristics values asynchronously.
-     *
-     * Example showing how to update the state of a Characteristic asynchronously instead
-     * of using the `on('get')` handlers.
-     * Here we change update the motion sensor trigger states on and off every 10 seconds
-     * the `updateCharacteristic` method.
-     *
-     */
-    let motionDetected = false;
-    setInterval(() => {
-      // EXAMPLE - inverse the trigger
-      motionDetected = !motionDetected;
-
-      // push the new value to HomeKit
-      motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
-      motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
-
-      this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
-      this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);
+    this.startPolling(pollIntervalMs, co2Threshold);
   }
 
-  /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
-   */
-  async setOn(value: CharacteristicValue) {
-    // implement your own code to turn your device on/off
-    this.exampleStates.On = value as boolean;
+  private startPolling(intervalMs: number, co2Threshold: number) {
+    setInterval(async () => {
+      try {
+        if (!this.sensor || !await this.sensor.isDataReady()) {
+          return;
+        }
 
-    this.platform.log.debug('Set Characteristic On ->', value);
-  }
+        const m = await this.sensor.readMeasurement();
+        const co2 = Math.round(m.co2Concentration);
 
-  /**
-   * Handle the "GET" requests from HomeKit
-   * These are sent when HomeKit wants to know the current state of the accessory, for example, checking if a Light bulb is on.
-   *
-   * GET requests should return as fast as possible. A long delay here will result in
-   * HomeKit being unresponsive and a bad user experience in general.
-   *
-   * If your device takes time to respond you should update the status of your device
-   * asynchronously instead using the `updateCharacteristic` method instead.
-   * In this case, you may decide not to implement `onGet` handlers, which may speed up
-   * the responsiveness of your device in the Home app.
+        this.co2Service.updateCharacteristic(this.platform.Characteristic.CarbonDioxideLevel, co2);
+        this.co2Service.updateCharacteristic(
+          this.platform.Characteristic.CarbonDioxideDetected,
+          co2 >= co2Threshold
+            ? this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
+            : this.platform.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL,
+        );
+        this.temperatureService.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, m.temperature);
+        this.humidityService.updateCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity, m.humidity);
 
-   * @example
-   * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
-   */
-  async getOn(): Promise<CharacteristicValue> {
-    // implement your own code to check if the device is on
-    const isOn = this.exampleStates.On;
-
-    this.platform.log.debug('Get Characteristic On ->', isOn);
-
-    // if you need to return an error to show the device as "Not Responding" in the Home app:
-    // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-
-    return isOn;
-  }
-
-  /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, changing the Brightness
-   */
-  async setBrightness(value: CharacteristicValue) {
-    // implement your own code to set the brightness
-    this.exampleStates.Brightness = value as number;
-
-    this.platform.log.debug('Set Characteristic Brightness -> ', value);
+        this.platform.log.debug(`CO2: ${co2} ppm, Temp: ${m.temperature.toFixed(1)}°C, Humidity: ${m.humidity.toFixed(1)}%`);
+      } catch (err) {
+        this.platform.log.error('Error reading from SCD30:', err);
+      }
+    }, intervalMs);
   }
 }

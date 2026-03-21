@@ -1,19 +1,19 @@
 {
-  "name": "homebridge-plugin-name",
-  "displayName": "Plugin Name",
+  "name": "homebridge-scd30",
+  "displayName": "SCD30 CO2 Sensor",
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "description": "A short description about what your plugin does.",
-  "author": "Your Name",
+  "description": "Homebridge plugin for the Sensirion SCD30 CO2, temperature and humidity sensor",
+  "author": "Fredrik Jonsson",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/USERNAME/GITHUB_PROJECT_NAME#readme",
+  "homepage": "https://github.com/frjo/homebridge-scd30#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME.git"
+    "url": "https://github.com/frjo/homebridge-scd30.git"
   },
   "bugs": {
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME/issues"
+    "url": "https://github.com/frjo/homebridge-scd30/issues"
   },
   "keywords": [
     "homebridge-plugin"
@@ -30,7 +30,7 @@
     "watch": "npm run build && npm link && nodemon"
   },
   "dependencies": {
-    "homebridge-lib": "^7.1.12"
+    "scd30-node": "^1.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

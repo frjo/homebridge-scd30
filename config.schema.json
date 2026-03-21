@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "SCD30",
   "pluginType": "platform",
   "singular": true,
   "strictValidation": false,
@@ -11,7 +11,31 @@
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "Example Dynamic Platform"
+        "default": "SCD30"
+      },
+      "temperature_offset": {
+        "title": "Temperature Offset (°C)",
+        "description": "Compensates for sensor self-heating. Written to the SCD30 hardware register. Typical values: 0–5°C.",
+        "type": "number",
+        "default": 0
+      },
+      "i2c_bus": {
+        "title": "I2C Bus Number",
+        "description": "The I2C bus the SCD30 is connected to. Usually 1 on Raspberry Pi.",
+        "type": "integer",
+        "default": 1
+      },
+      "poll_interval": {
+        "title": "Poll Interval (seconds)",
+        "description": "How often to read a measurement from the sensor.",
+        "type": "integer",
+        "default": 10
+      },
+      "co2_threshold": {
+        "title": "CO₂ Threshold (ppm)",
+        "description": "CO₂ level in ppm at which the CO₂ Detected characteristic switches to abnormal.",
+        "type": "integer",
+        "default": 1000
       }
     }
   }
