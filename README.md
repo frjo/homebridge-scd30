@@ -1,4 +1,4 @@
-# homebridge-scd30
+# Homebridge SCD30 sensor plugin
 
 A [Homebridge](https://homebridge.io) plugin for the [Sensirion SCD30](https://sensirion.com/products/catalog/SCD30/) CO₂, temperature and humidity sensor. Exposes the sensor readings to Apple HomeKit via three native services: CO₂ sensor, temperature sensor, and humidity sensor.
 
@@ -16,31 +16,8 @@ sudo usermod -aG i2c homebridge
 
 ## Installation
 
-Install through the Homebridge UI, or manually:
+Install through the Homebridge UI, search for "scd30".
 
-```sh
-sudo npm install -g homebridge-scd30
-```
-
-## Configuration
-
-Add the platform to your Homebridge `config.json`:
-
-```json
-{
-  "platforms": [
-    {
-      "platform": "SCD30",
-      "name": "SCD30",
-      "temperature_offset": 0,
-      "i2c_bus": 1,
-      "poll_interval": 10,
-      "co2_threshold": 1000,
-      "auto_calibration": true
-    }
-  ]
-}
-```
 
 ### Configuration options
 
@@ -77,10 +54,9 @@ The SCD30 communicates over I²C at address `0x61`. Connect it to the Raspberry 
 | SCD30 pin | Raspberry Pi pin |
 |---|---|
 | VDD | 3.3 V (pin 1) |
-| GND | GND (pin 6) |
-| SCL | SCL (pin 5 / GPIO 3) |
 | SDA | SDA (pin 3 / GPIO 2) |
-| SEL | GND (selects I²C mode) |
+| SCL | SCL (pin 5 / GPIO 3) |
+| GND | GND (pin 6 or 9) |
 
 ## License
 
