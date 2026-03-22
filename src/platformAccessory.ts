@@ -159,9 +159,9 @@ export class SCD30Accessory {
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.FirmwareRevision, firmwareVersion);
 
-    await this.sensor.setTemperatureOffset(temperatureOffset);
+    await this.sensor.setTemperatureOffset(Math.round(temperatureOffset * 100));
     const actualOffset = await this.sensor.getTemperatureOffset();
-    this.platform.log.info(`Temperature offset: ${actualOffset}°C`);
+    this.platform.log.info(`Temperature offset: ${(actualOffset / 100).toFixed(2)}°C`);
 
     await this.sensor.setAltitudeCompensation(altitude);
     const actualAltitude = await this.sensor.getAltitudeCompensation();
