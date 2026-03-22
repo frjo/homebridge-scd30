@@ -20,6 +20,13 @@
         "default": 0,
         "minimum": 0
       },
+      "altitude": {
+        "title": "Altitude (meters)",
+        "description": "Altitude above sea level in meters. Used by the SCD30 for altitude compensation. Set to your actual altitude for more accurate CO₂ readings.",
+        "type": "integer",
+        "default": 0,
+        "minimum": 0
+      },
       "co2_threshold": {
         "title": "CO₂ threshold (ppm)",
         "description": "CO₂ level in ppm at which the CO₂ Detected characteristic switches to abnormal.",

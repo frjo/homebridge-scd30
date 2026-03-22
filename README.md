@@ -26,11 +26,12 @@ Install through the Homebridge UI, search for "scd30".
 | `platform` | string | — | Must be `SCD30` |
 | `name` | string | `SCD30` | Display name for the accessory |
 | `temperature_offset` | number | `0` | Temperature offset in °C written to the SCD30 hardware register to compensate for sensor self-heating. Typical values: 0–5. |
-| `i2c_bus` | integer | `1` | I²C bus number the sensor is connected to. On Raspberry Pi this is usually `1`. |
-| `poll_interval` | integer | `10` | How often the sensor measures and is polled, in seconds. Valid range: 2–1800. |
+| `altitude` | integer | `0` | Altitude above sea level in meters. Used by the SCD30 for altitude compensation. Set to your actual altitude for more accurate CO₂ readings. |
 | `co2_threshold` | integer | `1000` | CO₂ level in ppm at which the CO₂ Detected characteristic switches to abnormal. |
-| `auto_calibration` | boolean | `true` | Enable the SCD30 automatic self-calibration (ASC). Disable if the sensor is not regularly exposed to fresh outdoor air (~400 ppm). |
 | `peak_reset` | string | `forever` | How often the peak CO₂ level resets. Options: `forever`, `daily` (24 h), `weekly` (7 days), `monthly` (30 days). |
+| `poll_interval` | integer | `10` | How often the sensor measures and is polled, in seconds. Valid range: 2–1800. |
+| `i2c_bus` | integer | `1` | I²C bus number the sensor is connected to. On Raspberry Pi this is usually `1`. |
+| `auto_calibration` | boolean | `true` | Enable the SCD30 automatic self-calibration (ASC). Disable if the sensor is not regularly exposed to fresh outdoor air (~400 ppm). |
 
 ### Temperature offset
 

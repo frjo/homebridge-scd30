@@ -135,6 +135,7 @@ export class SCD30Accessory {
   private async initialize() {
     const busNumber = (this.platform.config.i2c_bus as number | undefined) ?? 1;
     const temperatureOffset = (this.platform.config.temperature_offset as number | undefined) ?? 0;
+    const altitude = (this.platform.config.altitude as number | undefined) ?? 0;
     const autoCalibration = (this.platform.config.auto_calibration as boolean | undefined) ?? true;
     this.co2Threshold = (this.platform.config.co2_threshold as number | undefined) ?? 1000;
     this.peakResetInterval = (this.platform.config.peak_reset as string | undefined) ?? 'forever';
@@ -161,6 +162,11 @@ export class SCD30Accessory {
     if (temperatureOffset !== 0) {
       await this.sensor.setTemperatureOffset(temperatureOffset);
       this.platform.log.info(`Temperature offset set to ${temperatureOffset}°C`);
+    }
+
+    if (altitude !== 0) {
+      await this.sensor.setAltitudeCompensation(altitude);
+      this.platform.log.info(`Altitude compensation set to ${altitude}m`);
     }
 
     await this.sensor.setAutomaticSelfCalibration(autoCalibration);
