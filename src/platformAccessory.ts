@@ -159,22 +159,22 @@ export class SCD30Accessory {
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.FirmwareRevision, firmwareVersion);
 
-    if (temperatureOffset !== 0) {
-      await this.sensor.setTemperatureOffset(temperatureOffset);
-      this.platform.log.info(`Temperature offset set to ${temperatureOffset}°C`);
-    }
+    await this.sensor.setTemperatureOffset(temperatureOffset);
+    const actualOffset = await this.sensor.getTemperatureOffset();
+    this.platform.log.info(`Temperature offset: ${actualOffset}°C`);
 
-    if (altitude !== 0) {
-      await this.sensor.setAltitudeCompensation(altitude);
-      this.platform.log.info(`Altitude compensation set to ${altitude}m`);
-    }
+    await this.sensor.setAltitudeCompensation(altitude);
+    const actualAltitude = await this.sensor.getAltitudeCompensation();
+    this.platform.log.info(`Altitude compensation: ${actualAltitude}m`);
 
     await this.sensor.setAutomaticSelfCalibration(autoCalibration);
-    this.platform.log.info(`Automatic self-calibration ${autoCalibration ? 'enabled' : 'disabled'}`);
+    const actualASC = await this.sensor.isAutomaticSelfCalibrationActive();
+    this.platform.log.info(`Automatic self-calibration: ${actualASC ? 'enabled' : 'disabled'}`);
 
     await this.sensor.setMeasurementInterval(pollInterval);
+    const actualInterval = await this.sensor.getMeasurementInterval();
     await this.sensor.startContinuousMeasurement();
-    this.platform.log.info('SCD30 continuous measurement started');
+    this.platform.log.info(`Continuous measurement started, interval: ${actualInterval}s`);
 
     this.consecutiveErrors = 0;
     this.startPolling(pollInterval * 1000);
