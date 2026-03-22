@@ -26,6 +26,7 @@
         "type": "integer",
         "default": 0,
         "minimum": 0
+        "maximum": 5000
       },
       "co2_threshold": {
         "title": "CO₂ threshold (ppm)",
