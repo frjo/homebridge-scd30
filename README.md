@@ -30,6 +30,7 @@ Install through the Homebridge UI, search for "scd30".
 | `poll_interval` | integer | `10` | How often the sensor measures and is polled, in seconds. Valid range: 2–1800. |
 | `co2_threshold` | integer | `1000` | CO₂ level in ppm at which the CO₂ Detected characteristic switches to abnormal. |
 | `auto_calibration` | boolean | `true` | Enable the SCD30 automatic self-calibration (ASC). Disable if the sensor is not regularly exposed to fresh outdoor air (~400 ppm). |
+| `peak_reset` | string | `forever` | How often the peak CO₂ level resets. Options: `forever`, `daily` (24 h), `weekly` (7 days), `monthly` (30 days). |
 
 ### Temperature offset
 

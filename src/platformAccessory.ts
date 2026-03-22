@@ -20,8 +20,10 @@ export class SCD30Accessory {
 
   // Cached values for onGet handlers
   private co2Threshold = 1000;
+  private peakResetInterval = 'forever';
   private lastCO2 = 0;
   private lastPeakCO2 = 0;
+  private peakTimestamp = 0;
   private lastTemperature = 0;
   private lastHumidity = 0;
   private hasValidReading = false;
@@ -93,18 +95,38 @@ export class SCD30Accessory {
     return value;
   }
 
+  private isPeakExpired(): boolean {
+    if (this.peakResetInterval === 'forever') {
+      return false;
+    }
+    const intervals: Record<string, number> = {
+      daily: 24 * 60 * 60 * 1000,
+      weekly: 7 * 24 * 60 * 60 * 1000,
+      monthly: 30 * 24 * 60 * 60 * 1000,
+    };
+    return Date.now() - this.peakTimestamp > (intervals[this.peakResetInterval] ?? 0);
+  }
+
   private async loadPeakCO2(): Promise<number> {
     try {
       const data = JSON.parse(await readFile(this.peakStorageFile, 'utf-8'));
-      return typeof data.peakCO2 === 'number' && isFinite(data.peakCO2) ? data.peakCO2 : 0;
+      const peak = typeof data.peakCO2 === 'number' && isFinite(data.peakCO2) ? data.peakCO2 : 0;
+      this.peakTimestamp = typeof data.peakTimestamp === 'number' ? data.peakTimestamp : 0;
+      if (this.isPeakExpired()) {
+        this.platform.log.info('Peak CO₂ reset (interval expired)');
+        this.peakTimestamp = 0;
+        return 0;
+      }
+      return peak;
     } catch {
       return 0;
     }
   }
 
   private async savePeakCO2(value: number): Promise<void> {
+    this.peakTimestamp = Date.now();
     try {
-      await writeFile(this.peakStorageFile, JSON.stringify({ peakCO2: value }));
+      await writeFile(this.peakStorageFile, JSON.stringify({ peakCO2: value, peakTimestamp: this.peakTimestamp }));
     } catch (err) {
       this.platform.log.warn('Failed to save peak CO2 to storage:', err);
     }
@@ -115,6 +137,7 @@ export class SCD30Accessory {
     const temperatureOffset = (this.platform.config.temperature_offset as number | undefined) ?? 0;
     const autoCalibration = (this.platform.config.auto_calibration as boolean | undefined) ?? true;
     this.co2Threshold = (this.platform.config.co2_threshold as number | undefined) ?? 1000;
+    this.peakResetInterval = (this.platform.config.peak_reset as string | undefined) ?? 'forever';
 
     const rawPollInterval = (this.platform.config.poll_interval as number | undefined) ?? 10;
     const pollInterval = Math.min(1800, Math.max(2, rawPollInterval));
@@ -229,6 +252,12 @@ export class SCD30Accessory {
         this.lastCO2 = co2;
         this.lastTemperature = m.temperature;
         this.lastHumidity = m.relativeHumidity;
+
+        if (this.lastPeakCO2 > 0 && this.isPeakExpired()) {
+          this.platform.log.info('Peak CO₂ reset (interval expired)');
+          this.lastPeakCO2 = 0;
+          this.peakTimestamp = 0;
+        }
 
         if (co2 > this.lastPeakCO2) {
           this.lastPeakCO2 = co2;
