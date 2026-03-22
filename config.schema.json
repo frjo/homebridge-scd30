@@ -14,21 +14,21 @@
         "default": "SCD30"
       },
       "temperature_offset": {
-        "title": "Temperature Offset (°C)",
+        "title": "Temperature offset (°C)",
         "description": "Compensates for sensor self-heating. Written to the SCD30 hardware register. Typical values: 0–5°C.",
         "type": "number",
         "default": 0,
         "minimum": 0
       },
       "i2c_bus": {
-        "title": "I2C Bus Number",
+        "title": "I2C bus number",
         "description": "The I2C bus the SCD30 is connected to. Usually 1 on Raspberry Pi.",
         "type": "integer",
         "default": 1,
         "minimum": 0
       },
       "poll_interval": {
-        "title": "Poll Interval (seconds)",
+        "title": "Poll interval (seconds)",
         "description": "How often to read a measurement from the sensor.",
         "type": "integer",
         "default": 10,
@@ -36,7 +36,7 @@
         "maximum": 1800
       },
       "co2_threshold": {
-        "title": "CO₂ Threshold (ppm)",
+        "title": "CO₂ threshold (ppm)",
         "description": "CO₂ level in ppm at which the CO₂ Detected characteristic switches to abnormal.",
         "type": "integer",
         "default": 1000,
@@ -44,13 +44,13 @@
         "maximum": 5000
       },
       "auto_calibration": {
-        "title": "Automatic Self-Calibration",
+        "title": "Automatic self-calibration",
         "description": "Enable the SCD30 automatic self-calibration (ASC). Disable if the sensor is not regularly exposed to fresh outdoor air (~400 ppm).",
         "type": "boolean",
         "default": true
       },
       "peak_reset": {
-        "title": "Peak CO₂ Reset Interval",
+        "title": "Peak CO₂ reset interval",
         "description": "How often the peak CO₂ level is reset. Defaults to forever (never resets).",
         "type": "string",
         "default": "forever",
